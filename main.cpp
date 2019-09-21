@@ -6,15 +6,15 @@
 
 #define TOUCHPAD_FILE "/dev/input/event11"
 
-void switchTabs(bool right)
+void switchTabs(bool next)
 {
-
+        printf("Switching to previous tab\n");
+        system("xdotool key Alt+Tab");
 }
-
 
 void handleTrackPad()
 {
-        int fd;
+        int fd, smoothNess = 30, twoFingerEveCount;
         bool twoFingers = false;
         struct input_event ie;
         if ((fd = open(TOUCHPAD_FILE, O_RDONLY)) == -1)
@@ -29,16 +29,18 @@ void handleTrackPad()
                 {
                 case BTN_TOOL_FINGER:
                         /* code */
-                        printf("Finger\n");
+                        printf("single Finger\n");
                         break;
                 case BTN_TOOL_DOUBLETAP:
                         /* code */
-                        printf("Double\n");
                         twoFingers = !twoFingers;
+                        if (!twoFingers)
+                                twoFingerEveCount = 0;
                         break;
                 case ABS_X:
-                        if(twoFingers)
-                                printf("Switch Tabs Here %d\n ", ie.value);
+                        if (twoFingers && twoFingerEveCount % smoothNess == 0)
+                                switchTabs(true);
+                        twoFingerEveCount++;
                         break;
                 default:
                         break;
