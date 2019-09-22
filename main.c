@@ -7,13 +7,17 @@
 
 #define TOUCHPAD_FILE "/dev/input/event11"
 bool altDown;
-int TRIGGER_SMOOTHNESS = 30, RUNNING_SMOOTHNESS = 60, curSmoothness;
+int TRIGGER_SMOOTHNESS = 30, RUNNING_SMOOTHNESS = 40;
+int preX, preY, curSmoothness;
 
 void switchTabs(bool next)
 {
         if (altDown)
         {
-                system("xdotool key Tab");
+                if (next)
+                        system("xdotool key Tab");
+                else
+                        system("xdotool key Shift+Tab");
         }
         else
         {
@@ -54,8 +58,16 @@ void handleTrackPad()
                         }
                         break;
                 case ABS_X:
+                        if (ie.value == 0)
+                                continue;
                         if (twoFingers && twoFingerEveCount % curSmoothness == 0)
-                                switchTabs(true);
+                        {
+                                if (ie.value > preX)
+                                        switchTabs(true);
+                                else
+                                        switchTabs(false);
+                        }
+                        preX = ie.value;
                         twoFingerEveCount++;
                         break;
                 default:
