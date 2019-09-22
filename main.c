@@ -6,8 +6,8 @@
 #include <fcntl.h>
 
 #define TOUCHPAD_FILE "/dev/input/event11"
-bool altDown;
-int TRIGGER_SMOOTHNESS = 30, RUNNING_SMOOTHNESS = 40;
+bool altDown, itsScroll;
+int TRIGGER_SMOOTHNESS = 30, RUNNING_SMOOTHNESS = 50, SCROLL_CHECK_DIST = 5;
 int preX, preY, curSmoothness;
 
 void switchTabs(bool next)
@@ -57,10 +57,20 @@ void handleTrackPad()
                                 curSmoothness = TRIGGER_SMOOTHNESS;
                         }
                         break;
+                case ABS_Y:
+                        if (twoFingers && twoFingerEveCount % curSmoothness == 0)
+                        {
+                                if (abs(ie.value - preY) >= SCROLL_CHECK_DIST)
+                                        itsScroll = true;
+                                else
+                                        itsScroll = false;
+                        }
+                        preY = ie.value;
+                        break;
                 case ABS_X:
                         if (ie.value == 0)
                                 continue;
-                        if (twoFingers && twoFingerEveCount % curSmoothness == 0)
+                        if (twoFingers && twoFingerEveCount % curSmoothness == 0 && !itsScroll)
                         {
                                 if (ie.value > preX)
                                         switchTabs(true);
@@ -70,6 +80,7 @@ void handleTrackPad()
                         preX = ie.value;
                         twoFingerEveCount++;
                         break;
+
                 default:
                         break;
                 }
