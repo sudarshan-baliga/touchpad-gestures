@@ -6,8 +6,8 @@
 #include <fcntl.h>
 
 #define TOUCHPAD_FILE "/dev/input/event11"
-bool altDown, itsScroll;
-int TRIGGER_SMOOTHNESS = 30, RUNNING_SMOOTHNESS = 50, SCROLL_CHECK_DIST = 5;
+bool altDown, isVerticalScroll;
+int TRIGGER_SMOOTHNESS = 20, RUNNING_SMOOTHNESS = 25, VERTICAL_SCROLLL_CHECK_DIST = 3;
 int preX, preY, curSmoothness;
 
 void switchTabs(bool next)
@@ -30,8 +30,8 @@ void switchTabs(bool next)
 
 void handleTrackPad()
 {
-        int fd, twoFingerEveCount;
-        bool twoFingers = false;
+        int fd, threeFingersEveCount;
+        bool threeFingers = false;
         struct input_event ie;
         curSmoothness = TRIGGER_SMOOTHNESS;
         if ((fd = open(TOUCHPAD_FILE, O_RDONLY)) == -1)
@@ -44,33 +44,29 @@ void handleTrackPad()
 
                 switch (ie.code)
                 {
-                case BTN_TOOL_FINGER:
-                        printf("single Finger\n");
-                        break;
-                case BTN_TOOL_DOUBLETAP:
-                        twoFingers = !twoFingers;
-                        if (!twoFingers)
+                case BTN_TOOL_TRIPLETAP:
+                        threeFingers = !threeFingers;
+                        if (!threeFingers)
                         {
-                                twoFingerEveCount = 0;
+                                threeFingersEveCount = 0;
                                 altDown = false;
                                 system("xdotool keyup Alt");
                                 curSmoothness = TRIGGER_SMOOTHNESS;
                         }
-                        break;
                 case ABS_Y:
-                        if (twoFingers && twoFingerEveCount % curSmoothness == 0)
+                        if (threeFingers && threeFingersEveCount % curSmoothness == 0)
                         {
-                                if (abs(ie.value - preY) >= SCROLL_CHECK_DIST)
-                                        itsScroll = true;
+                                if (abs(ie.value - preY) >= VERTICAL_SCROLLL_CHECK_DIST)
+                                        isVerticalScroll = true;
                                 else
-                                        itsScroll = false;
+                                        isVerticalScroll = false;
                         }
                         preY = ie.value;
                         break;
                 case ABS_X:
                         if (ie.value == 0)
                                 continue;
-                        if (twoFingers && twoFingerEveCount % curSmoothness == 0 && !itsScroll)
+                        if (threeFingers && threeFingersEveCount % curSmoothness == 0 && !isVerticalScroll)
                         {
                                 if (ie.value > preX)
                                         switchTabs(true);
@@ -78,7 +74,7 @@ void handleTrackPad()
                                         switchTabs(false);
                         }
                         preX = ie.value;
-                        twoFingerEveCount++;
+                        threeFingersEveCount++;
                         break;
 
                 default:
