@@ -6,8 +6,8 @@
 #include <fcntl.h>
 
 #define TOUCHPAD_FILE "/dev/input/event11"
-bool altDown, isVerticalScroll;
-int TRIGGER_SMOOTHNESS = 20, RUNNING_SMOOTHNESS = 25, VERTICAL_SCROLLL_CHECK_DIST = 3;
+bool altDown, isVerticalScroll, desktopShow;
+int TRIGGER_SMOOTHNESS = 25, RUNNING_SMOOTHNESS = 30, VERTICAL_SCROLLL_CHECK_DIST = 3;
 int preX, preY, curSmoothness;
 
 void switchTabs(bool next)
@@ -28,10 +28,15 @@ void switchTabs(bool next)
         printf("Switching to previous tab\n");
 }
 
+void showDesktop()
+{
+        system("xdotool key Alt+Ctrl+d");
+}
+
 void handleTrackPad()
 {
-        int fd, threeFingersEveCount;
-        bool threeFingers = false;
+        int fd, threeFingersEveCount, fourFingersEveCount;
+        bool threeFingers = false, fourFingers = false;
         struct input_event ie;
         curSmoothness = TRIGGER_SMOOTHNESS;
         if ((fd = open(TOUCHPAD_FILE, O_RDONLY)) == -1)
@@ -53,11 +58,23 @@ void handleTrackPad()
                                 system("xdotool keyup Alt");
                                 curSmoothness = TRIGGER_SMOOTHNESS;
                         }
+                case BTN_TOOL_QUADTAP:
+                        fourFingers = !fourFingers;
+                        if(!fourFingers)
+                        {
+                                fourFingersEveCount = 0;
+                                desktopShow = false;
+                                curSmoothness = TRIGGER_SMOOTHNESS;
+                        }
                 case ABS_Y:
                         if (threeFingers && threeFingersEveCount % curSmoothness == 0)
                         {
-                                if (abs(ie.value - preY) >= VERTICAL_SCROLLL_CHECK_DIST)
+                                if (abs(ie.value - preY) >= VERTICAL_SCROLLL_CHECK_DIST && !desktopShow)
+                                {
                                         isVerticalScroll = true;
+                                        desktopShow = true;
+                                        showDesktop();
+                                }
                                 else
                                         isVerticalScroll = false;
                         }
