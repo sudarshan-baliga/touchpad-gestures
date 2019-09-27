@@ -6,8 +6,8 @@
 #include <fcntl.h>
 
 #define TOUCHPAD_FILE "/dev/input/event11"
-bool altDown, isVerticalScroll, desktopShow;
-int TRIGGER_SMOOTHNESS = 25, RUNNING_SMOOTHNESS = 30, VERTICAL_SCROLLL_CHECK_DIST = 3;
+bool altDown, isVerticalScroll, desktopShow, desktopSwitched;
+int TRIGGER_SMOOTHNESS = 25, RUNNING_SMOOTHNESS = 30, VERTICAL_SCROLLL_CHECK_DIST = 5;
 int preX, preY, curSmoothness;
 
 void switchTabs(bool next)
@@ -33,6 +33,14 @@ void showDesktop()
         system("xdotool key Alt+Ctrl+d");
 }
 
+void switchDesktop(bool next)
+{
+        if (next)
+                system("xdotool key Ctrl+Alt+Down");
+        else
+                system("xdotool key Ctrl+Alt+Up");
+}
+
 void handleTrackPad()
 {
         int fd, threeFingersEveCount, fourFingersEveCount;
@@ -55,28 +63,31 @@ void handleTrackPad()
                         {
                                 threeFingersEveCount = 0;
                                 altDown = false;
+                                desktopShow = false;
                                 system("xdotool keyup Alt");
                                 curSmoothness = TRIGGER_SMOOTHNESS;
                         }
+                        break;
                 case BTN_TOOL_QUADTAP:
                         fourFingers = !fourFingers;
-                        if(!fourFingers)
+                        if (!fourFingers)
                         {
                                 fourFingersEveCount = 0;
-                                desktopShow = false;
+                                desktopSwitched = false;
                                 curSmoothness = TRIGGER_SMOOTHNESS;
                         }
+                        break;
                 case ABS_Y:
-                        if (threeFingers && threeFingersEveCount % curSmoothness == 0)
+                        if (abs(ie.value - preY) >= VERTICAL_SCROLLL_CHECK_DIST)
                         {
-                                if (abs(ie.value - preY) >= VERTICAL_SCROLLL_CHECK_DIST && !desktopShow)
-                                {
-                                        isVerticalScroll = true;
-                                        desktopShow = true;
-                                        showDesktop();
-                                }
-                                else
-                                        isVerticalScroll = false;
+                                isVerticalScroll = true;
+                        }
+                        else
+                                isVerticalScroll = false;
+                        if (threeFingers && threeFingersEveCount % curSmoothness == 0 && !desktopShow)
+                        {
+                                desktopShow = true;
+                                showDesktop();
                         }
                         preY = ie.value;
                         break;
@@ -90,10 +101,17 @@ void handleTrackPad()
                                 else
                                         switchTabs(false);
                         }
+                        else if (fourFingers && fourFingersEveCount % curSmoothness == 0 && !isVerticalScroll && !desktopSwitched)
+                        {
+                                if (ie.value > preX)
+                                        switchDesktop(true);
+                                else
+                                        switchDesktop(false);
+                        }
                         preX = ie.value;
                         threeFingersEveCount++;
+                        fourFingersEveCount++;
                         break;
-
                 default:
                         break;
                 }
