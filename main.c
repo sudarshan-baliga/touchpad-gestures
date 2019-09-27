@@ -7,7 +7,7 @@
 
 #define TOUCHPAD_FILE "/dev/input/event11"
 bool altDown, isVerticalScroll, desktopShow, desktopSwitched;
-int TRIGGER_SMOOTHNESS = 25, RUNNING_SMOOTHNESS = 30, VERTICAL_SCROLLL_CHECK_DIST = 5;
+const int TRIGGER_SMOOTHNESS = 15, RUNNING_SMOOTHNESS = 35, VERTICAL_SCROLLL_CHECK_DIST = 3;
 int preX, preY, curSmoothness;
 
 void switchTabs(bool next)
@@ -54,7 +54,10 @@ void handleTrackPad()
         }
         while (read(fd, &ie, sizeof(struct input_event)))
         {
-
+                if(threeFingers)
+                        threeFingersEveCount++;
+                else if(fourFingers)
+                        fourFingersEveCount++;
                 switch (ie.code)
                 {
                 case BTN_TOOL_TRIPLETAP:
@@ -70,6 +73,7 @@ void handleTrackPad()
                         break;
                 case BTN_TOOL_QUADTAP:
                         fourFingers = !fourFingers;
+                        printf("four finger\n");
                         if (!fourFingers)
                         {
                                 fourFingersEveCount = 0;
@@ -84,7 +88,7 @@ void handleTrackPad()
                         }
                         else
                                 isVerticalScroll = false;
-                        if (threeFingers && threeFingersEveCount % curSmoothness == 0 && !desktopShow)
+                        if (threeFingers && threeFingersEveCount % curSmoothness == 0 && !desktopShow && isVerticalScroll)
                         {
                                 desktopShow = true;
                                 showDesktop();
@@ -109,8 +113,6 @@ void handleTrackPad()
                                         switchDesktop(false);
                         }
                         preX = ie.value;
-                        threeFingersEveCount++;
-                        fourFingersEveCount++;
                         break;
                 default:
                         break;
