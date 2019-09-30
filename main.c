@@ -6,10 +6,12 @@
 #include <fcntl.h>
 #include <string.h>
 
-char TOUCHPAD_FILE[] = "/dev/input/";
+#define TRIGGER_SMOOTHNESS 15
+#define RUNNING_SMOOTHNESS 38
+#define VERTICAL_SCROLL_CHECK_DIST 3
+
 bool altDown, isVerticalScroll, desktopShow, desktopSwitched;
-const int TRIGGER_SMOOTHNESS = 15, RUNNING_SMOOTHNESS = 28, VERTICAL_SCROLLL_CHECK_DIST = 3;
-int preX, preY, curSmoothness;
+int curSmoothness;
 
 char *getEventFile()
 {
@@ -17,7 +19,6 @@ char *getEventFile()
         char *eventFile = malloc(sizeof(char) * 10);
         fp = popen("awk 'BEGIN{FS=\"\\n\";RS=\"\\n\\n\"}{if($2 ~ /Touchpad/) {  split($6, chars, \" \"); print(chars[3])}}' /proc/bus/input/devices ", "r");
         fscanf(fp, "%s", eventFile);
-        printf("%s \n", eventFile);
         return eventFile;
 }
 
@@ -34,7 +35,6 @@ void switchTabs(bool next)
         {
                 system("xdotool keydown Alt");
                 altDown = true;
-                curSmoothness = RUNNING_SMOOTHNESS;
         }
         printf("Switching to previous tab\n");
 }
@@ -57,11 +57,13 @@ void handleTrackPad()
         int fd, threeFingersEveCount, fourFingersEveCount;
         bool threeFingers = false, fourFingers = false;
         struct input_event ie;
-        curSmoothness = TRIGGER_SMOOTHNESS;
+        char TOUCHPAD_FILE[] = "/dev/input/";
+        int preX, preY,
+            curSmoothness = TRIGGER_SMOOTHNESS;
 
         //get the touchpad event file
         strcat(TOUCHPAD_FILE, getEventFile());
-        
+
         if ((fd = open(TOUCHPAD_FILE, O_RDONLY)) == -1)
         {
                 perror("Could not open the touchpad event file");
@@ -77,9 +79,9 @@ void handleTrackPad()
                 {
                 case BTN_TOOL_TRIPLETAP:
                         threeFingers = !threeFingers;
+                        threeFingersEveCount = 0;
                         if (!threeFingers)
                         {
-                                threeFingersEveCount = 0;
                                 altDown = false;
                                 desktopShow = false;
                                 system("xdotool keyup Alt");
@@ -88,16 +90,16 @@ void handleTrackPad()
                         break;
                 case BTN_TOOL_QUADTAP:
                         fourFingers = !fourFingers;
+                        fourFingersEveCount = 0;
                         printf("four finger\n");
                         if (!fourFingers)
                         {
-                                fourFingersEveCount = 0;
                                 desktopSwitched = false;
                                 curSmoothness = TRIGGER_SMOOTHNESS;
                         }
                         break;
                 case ABS_Y:
-                        if (abs(ie.value - preY) >= VERTICAL_SCROLLL_CHECK_DIST)
+                        if (abs(ie.value - preY) >= VERTICAL_SCROLL_CHECK_DIST)
                         {
                                 isVerticalScroll = true;
                         }
@@ -106,6 +108,7 @@ void handleTrackPad()
                         if (threeFingers && threeFingersEveCount % curSmoothness == 0 && !desktopShow && isVerticalScroll)
                         {
                                 desktopShow = true;
+                                curSmoothness = RUNNING_SMOOTHNESS;
                                 showDesktop();
                         }
                         preY = ie.value;
@@ -115,6 +118,7 @@ void handleTrackPad()
                                 continue;
                         if (threeFingers && threeFingersEveCount % curSmoothness == 0 && !isVerticalScroll)
                         {
+                                curSmoothness = RUNNING_SMOOTHNESS;
                                 if (ie.value > preX)
                                         switchTabs(true);
                                 else
@@ -122,6 +126,7 @@ void handleTrackPad()
                         }
                         else if (fourFingers && fourFingersEveCount % curSmoothness == 0 && !isVerticalScroll && !desktopSwitched)
                         {
+                                curSmoothness = RUNNING_SMOOTHNESS;
                                 if (ie.value > preX)
                                         switchDesktop(true);
                                 else
