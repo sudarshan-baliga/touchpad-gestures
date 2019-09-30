@@ -4,11 +4,22 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <string.h>
 
-#define TOUCHPAD_FILE "/dev/input/event11"
+char TOUCHPAD_FILE[] = "/dev/input/";
 bool altDown, isVerticalScroll, desktopShow, desktopSwitched;
-const int TRIGGER_SMOOTHNESS = 15, RUNNING_SMOOTHNESS = 35, VERTICAL_SCROLLL_CHECK_DIST = 3;
+const int TRIGGER_SMOOTHNESS = 15, RUNNING_SMOOTHNESS = 28, VERTICAL_SCROLLL_CHECK_DIST = 3;
 int preX, preY, curSmoothness;
+
+char *getEventFile()
+{
+        FILE *fp;
+        char *eventFile = malloc(sizeof(char) * 10);
+        fp = popen("awk 'BEGIN{FS=\"\\n\";RS=\"\\n\\n\"}{if($2 ~ /Touchpad/) {  split($6, chars, \" \"); print(chars[3])}}' /proc/bus/input/devices ", "r");
+        fscanf(fp, "%s", eventFile);
+        printf("%s \n", eventFile);
+        return eventFile;
+}
 
 void switchTabs(bool next)
 {
@@ -47,6 +58,10 @@ void handleTrackPad()
         bool threeFingers = false, fourFingers = false;
         struct input_event ie;
         curSmoothness = TRIGGER_SMOOTHNESS;
+
+        //get the touchpad event file
+        strcat(TOUCHPAD_FILE, getEventFile());
+        
         if ((fd = open(TOUCHPAD_FILE, O_RDONLY)) == -1)
         {
                 perror("Could not open the touchpad event file");
@@ -54,9 +69,9 @@ void handleTrackPad()
         }
         while (read(fd, &ie, sizeof(struct input_event)))
         {
-                if(threeFingers)
+                if (threeFingers)
                         threeFingersEveCount++;
-                else if(fourFingers)
+                else if (fourFingers)
                         fourFingersEveCount++;
                 switch (ie.code)
                 {
