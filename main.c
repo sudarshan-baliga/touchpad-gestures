@@ -8,12 +8,13 @@
 #include <limits.h>
 
 #define TRIGGER_SMOOTHNESS 1
-#define RUNNING_SMOOTHNESS 39
-#define VERTICAL_SCROLL_CHECK_DIST 8
+#define RUNNING_SMOOTHNESS 40
+#define VERTICAL_SCROLL_CHECK_DIST 3
 #define RELATIVE_ORIGIN -1
+#define ACCELARATION 1
 
 bool altDown, isVerticalScroll, desktopShow, desktopSwitched;
-int curSmoothness;
+int curSmoothness, curSpeed;
 
 char *getEventFile()
 {
@@ -32,10 +33,16 @@ void switchTabs(bool next)
                         system("xdotool key Tab");
                 else
                         system("xdotool key Shift+Tab");
+                curSmoothness += curSpeed;
+                curSpeed += ACCELARATION;
         }
         else
         {
                 system("xdotool keydown Alt");
+                if (next)
+                        system("xdotool key Tab");
+                else
+                        system("xdotool key Shift+Tab");
                 altDown = true;
         }
         printf("Switching to previous tab\n");
@@ -60,9 +67,9 @@ void handleTrackPad()
         bool threeFingers = false, fourFingers = false;
         struct input_event ie;
         char TOUCHPAD_FILE[] = "/dev/input/";
-        int preX, preY,
-            curSmoothness = TRIGGER_SMOOTHNESS;
-
+        int preX, preY;
+        curSmoothness = TRIGGER_SMOOTHNESS;
+        curSpeed = ACCELARATION;
         //get the touchpad event file
         strcat(TOUCHPAD_FILE, getEventFile());
 
@@ -88,6 +95,7 @@ void handleTrackPad()
                                 desktopShow = false;
                                 system("xdotool keyup Alt");
                                 curSmoothness = TRIGGER_SMOOTHNESS;
+                                curSpeed = ACCELARATION;
                                 preX = RELATIVE_ORIGIN;
                                 preY = RELATIVE_ORIGIN;
                         }
@@ -100,6 +108,7 @@ void handleTrackPad()
                         {
                                 desktopSwitched = false;
                                 curSmoothness = TRIGGER_SMOOTHNESS;
+                                curSpeed = ACCELARATION;
                                 preX = RELATIVE_ORIGIN;
                                 preY = RELATIVE_ORIGIN;
                         }
@@ -129,6 +138,7 @@ void handleTrackPad()
                                         switchTabs(true);
                                 else
                                         switchTabs(false);
+                                printf("smooth %d\n", curSmoothness);
                         }
                         else if (preX != RELATIVE_ORIGIN && fourFingers && fourFingersEveCount % curSmoothness == 0 && !isVerticalScroll && !desktopSwitched)
                         {
