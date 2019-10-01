@@ -5,10 +5,12 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
+#include <limits.h>
 
-#define TRIGGER_SMOOTHNESS 2
+#define TRIGGER_SMOOTHNESS 1
 #define RUNNING_SMOOTHNESS 39
-#define VERTICAL_SCROLL_CHECK_DIST 5
+#define VERTICAL_SCROLL_CHECK_DIST 8
+#define RELATIVE_ORIGIN -1
 
 bool altDown, isVerticalScroll, desktopShow, desktopSwitched;
 int curSmoothness;
@@ -86,6 +88,8 @@ void handleTrackPad()
                                 desktopShow = false;
                                 system("xdotool keyup Alt");
                                 curSmoothness = TRIGGER_SMOOTHNESS;
+                                preX = RELATIVE_ORIGIN;
+                                preY = RELATIVE_ORIGIN;
                         }
                         break;
                 case BTN_TOOL_QUADTAP:
@@ -96,10 +100,12 @@ void handleTrackPad()
                         {
                                 desktopSwitched = false;
                                 curSmoothness = TRIGGER_SMOOTHNESS;
+                                preX = RELATIVE_ORIGIN;
+                                preY = RELATIVE_ORIGIN;
                         }
                         break;
                 case ABS_Y:
-                        if (abs(ie.value - preY) >= VERTICAL_SCROLL_CHECK_DIST)
+                        if (preY != RELATIVE_ORIGIN && abs(ie.value - preY) >= VERTICAL_SCROLL_CHECK_DIST)
                         {
                                 isVerticalScroll = true;
                         }
@@ -116,7 +122,7 @@ void handleTrackPad()
                 case ABS_X:
                         if (ie.value == 0)
                                 continue;
-                        if (threeFingers && threeFingersEveCount % curSmoothness == 0 && !isVerticalScroll)
+                        if (preX != RELATIVE_ORIGIN && threeFingers && threeFingersEveCount % curSmoothness == 0 && !isVerticalScroll)
                         {
                                 curSmoothness = RUNNING_SMOOTHNESS;
                                 if (ie.value > preX)
@@ -124,10 +130,10 @@ void handleTrackPad()
                                 else
                                         switchTabs(false);
                         }
-                        else if (fourFingers && fourFingersEveCount % curSmoothness == 0 && !isVerticalScroll && !desktopSwitched)
+                        else if (preX != RELATIVE_ORIGIN && fourFingers && fourFingersEveCount % curSmoothness == 0 && !isVerticalScroll && !desktopSwitched)
                         {
                                 curSmoothness = RUNNING_SMOOTHNESS;
-                                desktopSwitched = true; 
+                                desktopSwitched = true;
                                 if (ie.value > preX)
                                         switchDesktop(true);
                                 else
