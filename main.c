@@ -6,9 +6,9 @@
 #include <fcntl.h>
 #include <string.h>
 
-#define TRIGGER_SMOOTHNESS 15
-#define RUNNING_SMOOTHNESS 38
-#define VERTICAL_SCROLL_CHECK_DIST 3
+#define TRIGGER_SMOOTHNESS 2
+#define RUNNING_SMOOTHNESS 39
+#define VERTICAL_SCROLL_CHECK_DIST 5
 
 bool altDown, isVerticalScroll, desktopShow, desktopSwitched;
 int curSmoothness;
@@ -127,6 +127,7 @@ void handleTrackPad()
                         else if (fourFingers && fourFingersEveCount % curSmoothness == 0 && !isVerticalScroll && !desktopSwitched)
                         {
                                 curSmoothness = RUNNING_SMOOTHNESS;
+                                desktopSwitched = true; 
                                 if (ie.value > preX)
                                         switchDesktop(true);
                                 else
