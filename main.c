@@ -13,10 +13,11 @@
 #define RELATIVE_ORIGIN -1
 #define ACCELARATION 1
 
-bool altDown, isVerticalScroll, desktopShow, desktopSwitched;
+bool altDown, isVerticalScroll, isDesktopShown, isDesktopSwitched;
 int curSmoothness, curSpeed;
+int preX, preY;
 
-char *getEventFile()
+char *getEventFileName()
 {
         FILE *fp;
         char *eventFile = malloc(sizeof(char) * 10);
@@ -45,7 +46,17 @@ void switchTabs(bool next)
                         system("xdotool key Shift+Tab");
                 altDown = true;
         }
-        printf("Switching to previous tab\n");
+}
+
+void reset()
+{
+        altDown = false;
+        isDesktopShown = false;
+        isDesktopSwitched = false;
+        curSmoothness = TRIGGER_SMOOTHNESS;
+        curSpeed = ACCELARATION;
+        preX = RELATIVE_ORIGIN;
+        preY = RELATIVE_ORIGIN;
 }
 
 void showDesktop()
@@ -61,23 +72,86 @@ void switchDesktop(bool next)
                 system("xdotool key Ctrl+Alt+Up");
 }
 
+void handleThreeFingers(bool *threeFingers, int *threeFingersEveCount)
+{
+        *threeFingers = !*threeFingers;
+        *threeFingersEveCount = 0;
+        if (!*threeFingers)
+        {
+                reset();
+                system("xdotool keyup Alt");
+        }
+}
+
+void handleFourFingers(bool *fourFingers, int *fourFingersEveCount)
+{
+        *fourFingers = !*fourFingers;
+        *fourFingersEveCount = 0;
+        if (!*fourFingers)
+                reset();
+}
+
+void handleYChange(int value, bool *threeFingers, int *threeFingersEveCount)
+{
+        if (value == 0)
+                return;
+        if (preY != RELATIVE_ORIGIN && abs(value - preY) >= VERTICAL_SCROLL_CHECK_DIST)
+        {
+                isVerticalScroll = true;
+        }
+        else
+                isVerticalScroll = false;
+        if (*threeFingers && *threeFingersEveCount % curSmoothness == 0 && !isDesktopShown && isVerticalScroll)
+        {
+                isDesktopShown = true;
+                curSmoothness = RUNNING_SMOOTHNESS;
+                showDesktop();
+        }
+        preY = value;
+}
+
+void handleXChnage(int value, bool *threeFingers, int *threeFingersEveCount, bool *fourFingers, int *fourFingersEveCount)
+{
+        if (value == 0)
+                return;
+        if (preX != RELATIVE_ORIGIN && *threeFingers && *threeFingersEveCount % curSmoothness == 0 && !isVerticalScroll)
+        {
+                curSmoothness = RUNNING_SMOOTHNESS;
+                if (value > preX)
+                        switchTabs(true);
+                else
+                        switchTabs(false);
+        }
+        else if (preX != RELATIVE_ORIGIN && *fourFingers && *fourFingersEveCount % curSmoothness == 0 && !isVerticalScroll && !isDesktopSwitched)
+        {
+                curSmoothness = RUNNING_SMOOTHNESS;
+                isDesktopSwitched = true;
+                if (value > preX)
+                        switchDesktop(true);
+                else
+                        switchDesktop(false);
+        }
+        preX = value;
+}
+
 void handleTrackPad()
 {
+        struct input_event ie;
         int fd, threeFingersEveCount, fourFingersEveCount;
         bool threeFingers = false, fourFingers = false;
-        struct input_event ie;
         char TOUCHPAD_FILE[] = "/dev/input/";
-        int preX, preY;
         curSmoothness = TRIGGER_SMOOTHNESS;
         curSpeed = ACCELARATION;
+
         //get the touchpad event file
-        strcat(TOUCHPAD_FILE, getEventFile());
+        strcat(TOUCHPAD_FILE, getEventFileName());
 
         if ((fd = open(TOUCHPAD_FILE, O_RDONLY)) == -1)
         {
                 perror("Could not open the touchpad event file");
                 exit(EXIT_FAILURE);
         }
+        reset();
         while (read(fd, &ie, sizeof(struct input_event)))
         {
                 if (threeFingers)
@@ -87,69 +161,16 @@ void handleTrackPad()
                 switch (ie.code)
                 {
                 case BTN_TOOL_TRIPLETAP:
-                        threeFingers = !threeFingers;
-                        threeFingersEveCount = 0;
-                        if (!threeFingers)
-                        {
-                                altDown = false;
-                                desktopShow = false;
-                                system("xdotool keyup Alt");
-                                curSmoothness = TRIGGER_SMOOTHNESS;
-                                curSpeed = ACCELARATION;
-                                preX = RELATIVE_ORIGIN;
-                                preY = RELATIVE_ORIGIN;
-                        }
+                        handleThreeFingers(&threeFingers, &threeFingersEveCount);
                         break;
                 case BTN_TOOL_QUADTAP:
-                        fourFingers = !fourFingers;
-                        fourFingersEveCount = 0;
-                        printf("four finger\n");
-                        if (!fourFingers)
-                        {
-                                desktopSwitched = false;
-                                curSmoothness = TRIGGER_SMOOTHNESS;
-                                curSpeed = ACCELARATION;
-                                preX = RELATIVE_ORIGIN;
-                                preY = RELATIVE_ORIGIN;
-                        }
+                        handleFourFingers(&fourFingers, &fourFingersEveCount);
                         break;
                 case ABS_Y:
-                        if (preY != RELATIVE_ORIGIN && abs(ie.value - preY) >= VERTICAL_SCROLL_CHECK_DIST)
-                        {
-                                isVerticalScroll = true;
-                        }
-                        else
-                                isVerticalScroll = false;
-                        if (threeFingers && threeFingersEveCount % curSmoothness == 0 && !desktopShow && isVerticalScroll)
-                        {
-                                desktopShow = true;
-                                curSmoothness = RUNNING_SMOOTHNESS;
-                                showDesktop();
-                        }
-                        preY = ie.value;
+                        handleYChange(ie.value, &threeFingers, &threeFingersEveCount);
                         break;
                 case ABS_X:
-                        if (ie.value == 0)
-                                continue;
-                        if (preX != RELATIVE_ORIGIN && threeFingers && threeFingersEveCount % curSmoothness == 0 && !isVerticalScroll)
-                        {
-                                curSmoothness = RUNNING_SMOOTHNESS;
-                                if (ie.value > preX)
-                                        switchTabs(true);
-                                else
-                                        switchTabs(false);
-                                printf("smooth %d\n", curSmoothness);
-                        }
-                        else if (preX != RELATIVE_ORIGIN && fourFingers && fourFingersEveCount % curSmoothness == 0 && !isVerticalScroll && !desktopSwitched)
-                        {
-                                curSmoothness = RUNNING_SMOOTHNESS;
-                                desktopSwitched = true;
-                                if (ie.value > preX)
-                                        switchDesktop(true);
-                                else
-                                        switchDesktop(false);
-                        }
-                        preX = ie.value;
+                        handleXChnage(ie.value, &threeFingers, &threeFingersEveCount, &fourFingers, &fourFingersEveCount);
                         break;
                 default:
                         break;
