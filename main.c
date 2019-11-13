@@ -21,7 +21,7 @@ char *getEventFileName()
 {
         FILE *fp;
         char *eventFile = malloc(sizeof(char) * 10);
-        fp = popen("awk 'BEGIN{FS=\"\\n\";RS=\"\\n\\n\"}{if($2 ~ /Touchpad/) {  split($6, chars, \" \"); print(chars[3])}}' /proc/bus/input/devices ", "r");
+        fp = popen("awk 'BEGIN{FS=\"\\n\";RS=\"\\n\\n\"}{if($2 ~ /Touchpad/) {match($6,\"event.\",eventWord); print eventWord[0]}}' /proc/bus/input/devices ", "r");
         fscanf(fp, "%s", eventFile);
         return eventFile;
 }
